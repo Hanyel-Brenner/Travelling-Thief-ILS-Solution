@@ -11,6 +11,7 @@ Original file is located at
 * Hanyel Brenner Camargos de Paula 156503
 * Guilherme Vieira Justino 150007
 """
+import gurobipy as grb
 import numpy as np
 import random
 import math
@@ -80,9 +81,6 @@ class TravelingThiefProblem:
     def __repr__(self):
         return f"TravelingThiefProblem({self.problem_name}, {self.num_nodes} nodes, {self.num_items} items)"
 
-#ttp = TravelingThiefProblem()
-#ttp.read_from_file("/content/berlin52_n51_bounded-strongly-corr_01.txt")
-#print(ttp)
 """
 print("\nItems:")
 for item in ttp.items:
@@ -183,14 +181,6 @@ class tsp_lp_builder:
     self.file.write('END')
     self.file.close()
 
-#tsp = tsp_lp_builder("lp-tsp.txt",ttp.nodes)
-#tsp.setDistanceBetweenCities()
-#tsp.setObjectiveFunction("lp-tsp.txt")
-#tsp.setConstraints("lp-tsp.txt")
-#tsp.setBounds("lp-tsp.txt")
-#tsp.setVariableTypes("lp-tsp.txt")
-#print(tsp.d)
-
 class kp_lp_builder:
   def __init__(self, filename, items, knapsack_capacity):
     self.file = open(filename,'w')
@@ -241,12 +231,6 @@ class kp_lp_builder:
     self.file.write('END')
     self.file.close()
 
-#kp = kp_lp_builder("lpkp.txt", ttp.items, ttp.knapsack_capacity)
-#kp.setObjectiveFunction("lpkp.txt")
-#kp.setConstraints("lpkp.txt")
-#kp.setBounds("lp2.txt")
-#kp.setVariableTypes("lpkp.txt")
-
 class result_loader:
 
   def __init__(self, filename, ttp):
@@ -272,6 +256,8 @@ class result_loader:
     for i in range(bestResultIndex + 1, len(self.lines)):
       if "Objective value" in self.lines[i]:
         break;
+      if "Solution for" in self.lines[i]:
+        break;
       else:
         res.append(float(self.lines[i].split(' ')[1].strip()));
     return res;
@@ -292,11 +278,6 @@ class result_loader:
         columnIndex = int(variable.split('_')[1].strip());
         res[lineIndex][columnIndex] = number;
     return res;
-
-#result = result_loader('model0.sol', ttp);
-#print(result.getObjectiveValueIndex());
-#print(result.getKpResult());
-#print(result.getTspResult());
 
 class iterated_local_search:
   def __init__(self, kp_sol, tsp_sol, n, m):
@@ -335,43 +316,28 @@ class iterated_local_search:
 
 """para o tsp usar round,para o tsp usar ceil
 Para assim poder encontrar os resultados das instancias lá
-
 """
 
+#Travelling thief problem is read
 ttp = TravelingThiefProblem()
-ttp.read_from_file("/content/berlin52_n51_bounded-strongly-corr_01.txt")
-tsp = tsp_lp_builder("lp-tsp.txt",ttp.nodes)
+ttp.read_from_file("./berlin52-ttp/berlin52_n51_bounded-strongly-corr_01.ttp")
+
+#Travelling salesman problem is constructed in LP format based on ttp read instace
+tsp = tsp_lp_builder("lp-tsp.lp",ttp.nodes)
 tsp.setDistanceBetweenCities()
-tsp.setObjectiveFunction("lp-tsp.txt")
-tsp.setConstraints("lp-tsp.txt")
-tsp.setBounds("lp-tsp.txt")
-tsp.setVariableTypes("lp-tsp.txt")
-print(tsp.d)
-kp = kp_lp_builder("lpkp.txt", ttp.items, ttp.knapsack_capacity)
-kp.setObjectiveFunction("lpkp.txt")
-kp.setConstraints("lpkp.txt")
-#kp.setBounds("lp2.txt")
-kp.setVariableTypes("lpkp.txt")
-result = result_loader('model0.sol', ttp);
-print(result.getObjectiveValueIndex());
-print(result.getKpResult());
-print(result.getTspResult());
+tsp.setObjectiveFunction("lp-tsp.lp")
+tsp.setConstraints("lp-tsp.lp")
+tsp.setBounds("lp-tsp.lp")
+tsp.setVariableTypes("lp-tsp.lp")
 
-import gurobipy as grb
+#Knapsack problem is constructed in LP format based on ttp read instance
+kp = kp_lp_builder("lpkp.lp", ttp.items, ttp.knapsack_capacity)
+kp.setObjectiveFunction("lpkp.lp")
+kp.setConstraints("lpkp.lp")
+kp.setVariableTypes("lpkp.lp")
 
-# Create a new Gurobi model
-model = grb.Model()
-
-# Read the LP file (replace 'model.lp' with the path to your file)
-model.read('/content/atv7.lp')
-
-# Optimize the model
+#LP models are read using gurobi python API and solution is writen to solution file
+model = grb.read('lpkp.lp')
 model.optimize()
+model.write('sol.sol')
 
-# Check if a solution is found and print the results
-if model.status == grb.GRB.OPTIMAL:
-    print("Optimal solution found:")
-    for var in model.getVars():
-        print(f"{var.varName} = {var.x}")
-else:
-    print("No optimal solution found.")
