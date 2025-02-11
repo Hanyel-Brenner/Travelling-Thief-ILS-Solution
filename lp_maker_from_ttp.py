@@ -81,17 +81,6 @@ class TravelingThiefProblem:
     def __repr__(self):
         return f"TravelingThiefProblem({self.problem_name}, {self.num_nodes} nodes, {self.num_items} items)"
 
-"""
-print("\nItems:")
-for item in ttp.items:
-  item_index, profit, weight, assigned_node = item
-  print(f"Item {item_index}: Profit={profit}, Weight={weight}, Assigned Node={assigned_node}")
-
-print("Cidades")
-for node in ttp.nodes:
-  node_index, x, y = node
-  print(f"Node {node_index}: x={x}, y={y}")
-"""
 
 class tsp_lp_builder:
   def __init__(self, filename, cities):
@@ -293,6 +282,47 @@ class result_loader:
            
     return x,u
 
+def calculate_ttp_value(ttp, tsp_path, kp_solution):
+    """
+    Recalcula o valor da função objetivo do TTP
+    :param ttp: Instância do problema
+    :param tsp_path: Caminho do TSP (lista de cidades visitadas na ordem)
+    :param kp_solution: Lista binária indicando quais itens foram selecionados
+    :return: Valor da função objetivo
+    """
+    total_profit = 0
+    total_weight = 0
+    total_time = 0
+    current_speed = ttp.max_speed
+    
+    # Calcula o lucro total e peso da mochila
+    for i, selected in enumerate(kp_solution):
+        if selected:
+            _, profit, weight, assigned_node = ttp.items[i]
+            total_profit += profit
+            total_weight += weight
+    
+    # Percorre a rota do TSP e calcula o tempo total
+    for i in range(len(tsp_path) - 1):
+        city1 = tsp_path[i]
+        city2 = tsp_path[i + 1]
+        
+        x1, y1 = ttp.nodes[city1 - 1][1], ttp.nodes[city1 - 1][2]
+        x2, y2 = ttp.nodes[city2 - 1][1], ttp.nodes[city2 - 1][2]
+        
+        distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+        
+        # Atualiza velocidade de acordo com o peso carregado
+        current_speed = ttp.max_speed - ((total_weight / ttp.knapsack_capacity) * (ttp.max_speed - ttp.min_speed))
+        travel_time = distance / current_speed
+        
+        total_time += travel_time
+    
+    # Calcula o valor final da função objetivo
+    ttp_value = total_profit - (ttp.renting_ratio * total_time)
+    return ttp_value
+
+
 class iterated_local_search:
   def __init__(self, kp_sol, tsp_sol, n, m):
     self.kp_sol = kp_sol[:];
@@ -328,9 +358,7 @@ class iterated_local_search:
         sol[i], sol[j] = sol[j], sol[i]  # Realiza a troca
     return sol
 
-"""para o tsp usar round,para o tsp usar ceil
-Para assim poder encontrar os resultados das instancias lá
-"""
+
 
 #Travelling thief problem is read
 ttp = TravelingThiefProblem()
