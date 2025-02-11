@@ -15,6 +15,7 @@ import gurobipy as grb
 import numpy as np
 import random
 import math
+import os
 
 class TravelingThiefProblem:
     def __init__(self):
@@ -333,6 +334,34 @@ Para assim poder encontrar os resultados das instancias lá
 """
 
 #Travelling thief problem is read
+
+def solve_LPs(ttpDirectoryPath, lpOutDir, solOutDir):
+  os.makedirs(lpOutDir)
+  os.makedirs(solOutDir)
+  for element in os.listdir(ttpDirectoryPath):
+    print(element)
+    temp = element.split('.')[0]
+    kp_lp_path = os.path.join(lpOutDir, temp + '-kp.lp')
+    tsp_lp_path = os.path.join(lpOutDir, temp + '-tsp.lp')
+
+    ttp = TravelingThiefProblem()
+    ttp.read_from_file(os.path.join(ttpDirectoryPath,element))
+
+    kp = kp_lp_builder(kp_lp_path, ttp.items, ttp.knapsack_capacity)
+    kp.setObjectiveFunction(kp_lp_path)
+    kp.setConstraints(kp_lp_path)  
+    kp.setVariableTypes(kp_lp_path)
+
+    tsp = tsp_lp_builder(tsp_lp_path,ttp.nodes)
+    tsp.setDistanceBetweenCities()
+    tsp.setObjectiveFunction(tsp_lp_path)
+    tsp.setConstraints( tsp_lp_path)
+    tsp.setBounds(tsp_lp_path)
+    tsp.setVariableTypes(tsp_lp_path)
+
+solve_LPs('berlin52-ttp', 'lp_files', 'solution_files')
+       
+"""
 ttp = TravelingThiefProblem()
 ttp.read_from_file("./berlin52-ttp/berlin52_n51_bounded-strongly-corr_01.ttp")
 
@@ -367,5 +396,5 @@ model2.write('sol2.sol')
 results2 = result_loader('sol2.sol',ttp)
 index2 = results2.getObjectiveValueIndex('tsp')
 x, u = results2.getTspResult(index2)
-print(x)
 
+"""
