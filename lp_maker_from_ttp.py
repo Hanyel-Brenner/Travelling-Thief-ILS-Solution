@@ -134,7 +134,9 @@ class tsp_lp_builder:
       for i in range(0, N):
         for j in range(0, N):
           self.file.write(f'x{i}_{j}')
-          if j != (N - 1) and not(i == N - 1 and j == N - 2):
+          """if j != (N - 1) and not(i == N - 1 and j == N - 2):
+            self.file.write(' + ')"""
+          if j != (N - 1):
             self.file.write(' + ')
         self.file.write(' = 1\n')
 
@@ -144,7 +146,9 @@ class tsp_lp_builder:
       for i in range(0, N):
         for j in range(0, N):
           self.file.write(f'x{j}_{i}')
-          if j != N - 1 and not( i == N - 1 and j == N - 2) :
+          """if j != (N - 1) and not( i == N - 1 and j == N - 2) :
+            self.file.write(' + ')"""
+          if j != (N - 1):
             self.file.write(' + ')
         self.file.write(' = 1\n')
 
@@ -256,28 +260,38 @@ class result_loader:
     for i in range(bestResultIndex + 1, len(self.lines)):
       if "Objective value" in self.lines[i]:
         break;
-      if "Solution for" in self.lines[i]:
-        break;
       else:
         res.append(float(self.lines[i].split(' ')[1].strip()));
     return res;
 
   def getTspResult(self, bestResultIndex):
-    res = [[]];
     n = len(self.ttp.nodes);
+    x = [[0 for _ in range(0,n)] for _ in range(0,n)];
+    u = [0 for _ in range(0,n)];
     nOfLines = len(self.lines);
     for i in range(bestResultIndex + 1, nOfLines):
       if "Objective value" in self.lines[i]:
         break;
       else:
-        variable = self.lines[i].split(' ')[0].strip();
-        number = float(self.lines[i].split(' ')[1].strip());
-        print(variable);
-        print(number);
-        lineIndex = int(variable.split('_')[0].strip()[1:]);
-        columnIndex = int(variable.split('_')[1].strip());
-        res[lineIndex][columnIndex] = number;
-    return res;
+        if "x" in self.lines[i]:
+          variable = self.lines[i].split(' ')[0].strip();
+          number = float(self.lines[i].split(' ')[1].strip());
+          #print(variable);
+          #print(number);
+          lineIndex = int(variable.split('_')[0].strip()[1:]);
+          columnIndex = int(variable.split('_')[1].strip());
+          if columnIndex > n - 1 :
+            raise Exception()
+          x[lineIndex][columnIndex] = number;
+        if "u" in self.lines[i]:
+          variable = self.lines[i].split(' ')[0].strip();
+          number = float(self.lines[i].split(' ')[1].strip());
+          #print(variable);
+          #print(number);
+          lineIndex = int(variable[1:])
+          u[lineIndex] = number
+           
+    return x,u
 
 class iterated_local_search:
   def __init__(self, kp_sol, tsp_sol, n, m):
@@ -340,4 +354,18 @@ kp.setVariableTypes("lpkp.lp")
 model = grb.read('lpkp.lp')
 model.optimize()
 model.write('sol.sol')
+
+#After solving the model, we take the solution file and read it using solution loader
+results = result_loader('sol.sol', ttp)
+index = results.getObjectiveValueIndex('kp')
+print(results.getKpResult(index))
+
+model2 = grb.read('lp-tsp.lp')
+model2.optimize()
+model2.write('sol2.sol')
+
+results2 = result_loader('sol2.sol',ttp)
+index2 = results2.getObjectiveValueIndex('tsp')
+x, u = results2.getTspResult(index2)
+print(x)
 
