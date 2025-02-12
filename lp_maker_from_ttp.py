@@ -335,14 +335,12 @@ Para assim poder encontrar os resultados das instancias lá
 
 #Travelling thief problem is read
 
-def solve_LPs(ttpDirectoryPath, lpOutDir, solOutDir):
+def generate_kp_LPs(ttpDirectoryPath, lpOutDir):
   os.makedirs(lpOutDir)
-  os.makedirs(solOutDir)
   for element in os.listdir(ttpDirectoryPath):
     print(element)
     temp = element.split('.')[0]
     kp_lp_path = os.path.join(lpOutDir, temp + '-kp.lp')
-    tsp_lp_path = os.path.join(lpOutDir, temp + '-tsp.lp')
 
     ttp = TravelingThiefProblem()
     ttp.read_from_file(os.path.join(ttpDirectoryPath,element))
@@ -352,6 +350,16 @@ def solve_LPs(ttpDirectoryPath, lpOutDir, solOutDir):
     kp.setConstraints(kp_lp_path)  
     kp.setVariableTypes(kp_lp_path)
 
+def generate_tsp_LPs(ttpDirectoryPath, lpOutDir):
+   os.makedirs(lpOutDir)
+   for element in os.listdir(ttpDirectoryPath):
+    print(element)
+    temp = element.split('.')[0]
+    tsp_lp_path = os.path.join(lpOutDir, temp + '-tsp.lp')
+
+    ttp = TravelingThiefProblem()
+    ttp.read_from_file(os.path.join(ttpDirectoryPath,element))
+
     tsp = tsp_lp_builder(tsp_lp_path,ttp.nodes)
     tsp.setDistanceBetweenCities()
     tsp.setObjectiveFunction(tsp_lp_path)
@@ -359,8 +367,20 @@ def solve_LPs(ttpDirectoryPath, lpOutDir, solOutDir):
     tsp.setBounds(tsp_lp_path)
     tsp.setVariableTypes(tsp_lp_path)
 
-solve_LPs('berlin52-ttp', 'lp_files', 'solution_files')
-       
+def solve_LPs(lpFilesDir, solOutDir):
+   os.makedirs(solOutDir)
+   for element in os.listdir(lpFilesDir):
+    temp = element.split('.')[0]
+    outDirPath = os.path.join(solOutDir, temp + '.sol')
+    model = grb.read(os.path.join(lpFilesDir, element))
+    model.optimize()
+    model.write(outDirPath)
+   
+generate_kp_LPs('berlin52-ttp', 'kp_lp_files')
+generate_tsp_LPs('berlin52-ttp', 'tsp_lp_files')
+solve_LPs('kp_lp_files', 'kp_sol_files')
+solve_LPs('tsp_lp_files', 'tsp_sol_files')
+
 """
 ttp = TravelingThiefProblem()
 ttp.read_from_file("./berlin52-ttp/berlin52_n51_bounded-strongly-corr_01.ttp")
