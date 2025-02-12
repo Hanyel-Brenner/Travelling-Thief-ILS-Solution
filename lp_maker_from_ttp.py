@@ -266,8 +266,6 @@ class result_loader:
         if "x" in self.lines[i]:
           variable = self.lines[i].split(' ')[0].strip();
           number = float(self.lines[i].split(' ')[1].strip());
-          #print(variable);
-          #print(number);
           lineIndex = int(variable.split('_')[0].strip()[1:]);
           columnIndex = int(variable.split('_')[1].strip());
           if columnIndex > n - 1 :
@@ -276,8 +274,6 @@ class result_loader:
         if "u" in self.lines[i]:
           variable = self.lines[i].split(' ')[0].strip();
           number = float(self.lines[i].split(' ')[1].strip());
-          #print(variable);
-          #print(number);
           lineIndex = int(variable[1:])
           u[lineIndex] = number
            
@@ -325,27 +321,39 @@ def calculate_ttp_value(ttp, tsp_path, kp_solution):
 
 
 class iterated_local_search:
-  def __init__(self, kp_sol, tsp_sol, n, m):
+  def __init__(self, ttp, kp_sol, tsp_sol, n, m):
+    self.ttp = ttp;
     self.kp_sol = kp_sol[:];
     self.tsp_sol = tsp_sol[:];
     self.kp_size = n;
     self.tsp_size = m;
 
   #tem uma margem de minimo e maximo
-  def iterate(self,minIter, maxIter , perturbationFactor):
+  def iterate(self, minIter, maxIter , perturbationFactor):
+    baseResult = calculate_ttp_value(self.ttp, self.tsp_sol ,self.kp_sol)
     kp_sol = self.kp_sol;
     tsp_sol = self.tsp_sol;
     for counter in range(minIter, maxIter):
+
+      
+
       #Escolhe o ttp ou o kp aleatoriamente para pertubar
       switch = random.randint(0,1);
       if(switch == 0):
         kp_sol_perturbed = self.perturbation(kp_sol, perturbationFactor, counter,'kp');
       else:
         tsp_sol_perturbed = self.perturbation(tsp_sol, perturbationFactor, counter,'tsp');
+      
+      newResult = calculate_ttp_value(self.ttp, tsp_sol_perturbed, kp_sol_perturbed)
 
-    return kp_sol_perturbed, tsp_sol_perturbed
+      if newResult < baseResult:
+        baseResult = newResult
+        kp_sol = kp_sol_perturbed
+        tsp_sol = tsp_sol_perturbed 
+         
+    return kp_sol, tsp_sol
 
-  def perturbation(self, sol, perturbationFactor, iterNumber ,problemType):
+  def perturbation(self, sol, perturbationFactor, counter ,problemType):
     if(problemType == 'kp'):
       i = random.randint(0, self.kp_size-1);
       min_j = max(0, i - int(perturbationFactor * self.kp_size))
