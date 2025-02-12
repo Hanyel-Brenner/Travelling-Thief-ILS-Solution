@@ -16,6 +16,8 @@ import numpy as np
 import random
 import math
 import os
+import time
+import csv
 
 class TravelingThiefProblem:
     def __init__(self):
@@ -281,43 +283,53 @@ class result_loader:
 
 def calculate_ttp_value(ttp, tsp_path, kp_solution):
     """
-    Recalcula o valor da função objetivo do TTP
-    :param ttp: Instância do problema
-    :param tsp_path: Caminho do TSP (lista de cidades visitadas na ordem)
-    :param kp_solution: Lista binária indicando quais itens foram selecionados
+    Recalcula o valor da função objetivo do TTP levando em conta a variação de peso e velocidade.
+    
+    :param ttp: Instância do problema (TravelingThiefProblem)
+    :param tsp_path: Lista de cidades na ordem da rota
+    :param kp_solution: Lista binária indicando quais itens foram selecionados (1 = selecionado, 0 = não)
     :return: Valor da função objetivo
     """
     total_profit = 0
     total_weight = 0
     total_time = 0
-    current_speed = ttp.max_speed
-    
-    # Calcula o lucro total e peso da mochila
+
+    # Verifica se a cidade de origem está no final do caminho
+    if tsp_path[-1] != tsp_path[0]:
+        tsp_path.append(tsp_path[0])  # Garante que o ciclo é fechado
+
+    # Cria um dicionário para mapear quais itens estão em cada cidade
+    items_in_city = {city: [] for city in range(1, ttp.num_nodes + 1)}
     for i, selected in enumerate(kp_solution):
         if selected:
-            _, profit, weight, assigned_node = ttp.items[i]
-            total_profit += profit
-            total_weight += weight
-    
-    # Percorre a rota do TSP e calcula o tempo total
+            item_index, profit, weight, assigned_node = ttp.items[i]
+            items_in_city[assigned_node].append((profit, weight))
+            total_profit += profit  # Soma o lucro dos itens selecionados
+
+    # Percorre a rota do TSP e calcula o tempo total de viagem
     for i in range(len(tsp_path) - 1):
         city1 = tsp_path[i]
         city2 = tsp_path[i + 1]
-        
+
         x1, y1 = ttp.nodes[city1 - 1][1], ttp.nodes[city1 - 1][2]
         x2, y2 = ttp.nodes[city2 - 1][1], ttp.nodes[city2 - 1][2]
-        
+
         distance = math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-        
-        # Atualiza velocidade de acordo com o peso carregado
+
+        # Antes de viajar para a próxima cidade, verificar se pegamos itens nesta cidade
+        if city1 in items_in_city:
+            for profit, weight in items_in_city[city1]:
+                total_weight += weight  # Atualiza o peso carregado
+
+        # Calcula a velocidade dinâmica antes de percorrer a distância
         current_speed = ttp.max_speed - ((total_weight / ttp.knapsack_capacity) * (ttp.max_speed - ttp.min_speed))
         travel_time = distance / current_speed
-        
-        total_time += travel_time
-    
-    # Calcula o valor final da função objetivo
+        total_time += travel_time  # Acumula o tempo de viagem
+
+    # Calcula a função objetivo final
     ttp_value = total_profit - (ttp.renting_ratio * total_time)
     return ttp_value
+
 
 
 class iterated_local_search:
@@ -327,50 +339,68 @@ class iterated_local_search:
     self.tsp_sol = tsp_sol[:];
     self.kp_size = n;
     self.tsp_size = m;
+    self.profit = 0;
 
   #tem uma margem de minimo e maximo
   def iterate(self, minIter, maxIter , perturbationFactor):
     baseResult = calculate_ttp_value(self.ttp, self.tsp_sol ,self.kp_sol)
-    kp_sol = self.kp_sol;
-    tsp_sol = self.tsp_sol;
+    exactSol = baseResult
+    kp_sol = self.kp_sol[:];
+    tsp_sol = self.tsp_sol[:];
+    kp_sol_perturbed = self.kp_sol[:];
+    tsp_sol_perturbed = self.tsp_sol[:];
+
     for counter in range(minIter, maxIter):
-
-      
-
       #Escolhe o ttp ou o kp aleatoriamente para pertubar
       switch = random.randint(0,1);
       if(switch == 0):
-        kp_sol_perturbed = self.perturbation(kp_sol, perturbationFactor, counter,'kp');
+        temp_sol = self.perturbation(kp_sol, perturbationFactor, counter,'kp');
+        #verifica se a capacidade máxima da mochila não foi violada
+        totalWeight = 0
+        for item_index, profit, weight, assigned_node in self.ttp.items:
+  
+          if temp_sol[item_index - 1] == 1: 
+            totalWeight += weight 
+
+        if totalWeight > self.ttp.knapsack_capacity:
+          kp_sol_perturbed = kp_sol[:]
+        else:
+          kp_sol_perturbed = temp_sol[:]
       else:
         tsp_sol_perturbed = self.perturbation(tsp_sol, perturbationFactor, counter,'tsp');
       
+      #calcula novo resultado baseado na perturbação
       newResult = calculate_ttp_value(self.ttp, tsp_sol_perturbed, kp_sol_perturbed)
-
-      if newResult < baseResult:
+      
+      #se o novo lucro encontrado for maior que o ultimo lucro aceito, subtitua a solução e o valor para ser usado na proxima iteração
+      if newResult > baseResult:
         baseResult = newResult
-        kp_sol = kp_sol_perturbed
-        tsp_sol = tsp_sol_perturbed 
-         
-    return kp_sol, tsp_sol
+        kp_sol = kp_sol_perturbed[:]
+        tsp_sol = tsp_sol_perturbed[:]
+
+    self.profit = baseResult    
+    return exactSol, kp_sol, tsp_sol
 
   def perturbation(self, sol, perturbationFactor, counter ,problemType):
+    temp_sol = sol[:]
     if(problemType == 'kp'):
       i = random.randint(0, self.kp_size-1);
       min_j = max(0, i - int(perturbationFactor * self.kp_size))
       max_j = min(self.kp_size - 1, i + int(perturbationFactor * self.kp_size))
       j = random.randint(min_j, max_j);
-      sol[i], sol[j] = sol[j], sol[i];
-      return sol;
+      temp_sol[i], temp_sol[j] = temp_sol[j], temp_sol[i];
+      return temp_sol[:];
 
     if(problemType == 'tsp'):
         i, j = random.sample(range(self.tsp_size), 2)  # Escolhe dois índices distintos
-        sol[i], sol[j] = sol[j], sol[i]  # Realiza a troca
-    return sol
-
-
+        temp_sol[i], temp_sol[j] = temp_sol[j], temp_sol[i]  # Realiza a troca
+    return sol[:]
+  
+  def getFinalResult(self):
+    return self.profit
+  
 
 #Travelling thief problem is read
-
 def generate_kp_LPs(ttpDirectoryPath, lpOutDir):
   os.makedirs(lpOutDir)
   for element in os.listdir(ttpDirectoryPath):
@@ -411,46 +441,107 @@ def solve_LPs(lpFilesDir, solOutDir):
     model = grb.read(os.path.join(lpFilesDir, element))
     model.optimize()
     model.write(outDirPath)
+
+def applyHeuristic(ttpInstanceDir, kpSolDir, HeuristicSolDir, iterMin, iterMax, perturbation):
+   tsp_result_eil51 = [1, 22, 2, 16, 50, 34, 21, 29, 20, 35, 36, 3, 28, 31, 8, 26, 7, 43, 24, 23, 48, 6, 27, 46, 12, 47, 4, 18, 14, 25, 13, 41, 19, 40, 42, 44, 17, 37, 15, 45, 33, 39, 10, 30, 9, 49, 5, 38, 11, 32, 1]
+   tsp_result_pr152 = [1, 35, 36, 34, 47, 51, 73, 75, 48, 49, 50, 76, 74, 77, 93, 94, 95, 92, 78, 91, 96, 115, 116, 124, 125, 126, 152, 150, 151, 127, 128, 123, 122, 129, 130, 149, 148, 147, 131, 132, 121, 120, 133, 134, 146, 145, 144, 135, 136, 119, 118, 137, 138, 143, 142, 141, 139, 140, 117, 110, 109, 108, 85, 84, 86, 107, 106, 105, 83, 87, 104, 111, 112, 82, 88, 103, 102, 101, 81, 89, 100, 113, 114, 80, 90, 99, 98, 97, 79, 71, 72, 53, 52, 46, 70, 69, 54, 45, 44, 55, 56, 68, 67, 66, 65, 57, 43, 42, 58, 59, 64, 63, 62, 61, 60, 41, 40, 18, 17, 9, 8, 10, 19, 21, 20, 7, 11, 22, 23, 39, 6, 12, 24, 25, 26, 5, 13, 27, 28, 38, 4, 14, 29, 30, 31, 3, 15, 32, 33, 37, 2, 16,1] 
+   tsp_result_a280 = [1, 2, 242, 243, 244, 241, 240, 239, 238, 237, 236, 235, 234, 233, 232, 231, 246, 245, 247,250, 251, 230, 229, 228, 227, 226, 225, 224, 223, 222, 221, 220, 219, 218, 217, 216, 215, 214,213, 212, 211, 210, 207, 206, 205, 204, 203, 202, 201, 198, 197, 196, 195, 194, 193, 192, 191,190, 189, 188, 187, 186, 185, 184, 183, 182, 181, 176, 180, 179, 150, 178, 177, 151, 152, 156,153, 155, 154, 129, 130, 131, 20, 21, 128, 127, 126, 125, 124, 123, 122, 121, 120, 119, 157,158, 159, 160, 175, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 172, 171, 173, 174, 107,106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 109, 108, 110,111, 112, 88, 87, 113, 114, 115, 117, 116, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74,73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45,44, 59, 63, 62, 118, 61, 60, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28,27, 26, 22, 25, 23, 24, 14, 15, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 277, 276, 275, 274, 273, 272,271, 16, 17, 18, 19, 132, 133, 134, 270, 269, 135, 136, 268, 267, 137, 138, 139, 149, 148, 147,146, 145, 199, 200, 144, 143, 142, 141, 140, 266, 265, 264, 263, 262, 261, 260, 259, 258, 257,254, 253, 208, 209, 252, 255, 256, 249, 248, 278, 279, 3, 280,1]
+   if(not(os.path.exists(HeuristicSolDir))):
+    os.makedirs(HeuristicSolDir)
+
+   file = open(os.path.join(HeuristicSolDir, f'solution_{perturbation*10}.txt'), 'w')
+   file.write('Solutions\n',)
+   file.close()
+
+   data = []
+
+   for element in os.listdir(ttpInstanceDir):
+    temp = element.split('.')[0]
+    solFilePath = os.path.join( kpSolDir, temp + '-kp.sol')
+
+    ttp = TravelingThiefProblem()
+    ttp.read_from_file(os.path.join(ttpInstanceDir , element))
+
+    resLoader = result_loader( solFilePath, ttp)
+    kp_result = resLoader.getKpResult(resLoader.getObjectiveValueIndex('kp'))
+
+    tempo_inicial = time.time()
+    if 'eil51' in element:
+      ils_instance = iterated_local_search(ttp, kp_result, tsp_result_eil51, len(kp_result), len(tsp_result_eil51))
+      exactSol,sol1, sol2 = ils_instance.iterate(iterMin, iterMax, perturbation)
+      finalResult = ils_instance.getFinalResult()
+
+    if 'pr152' in element:
+      ils_instance = iterated_local_search(ttp, kp_result, tsp_result_pr152, len(kp_result), len(tsp_result_pr152))
+      exactSol, sol1, sol2 = ils_instance.iterate(iterMin, iterMax, perturbation)
+      finalResult = ils_instance.getFinalResult()
+
+    if 'a280' in element:
+      ils_instance = iterated_local_search(ttp, kp_result, tsp_result_a280, len(kp_result), len(tsp_result_a280))
+      exactSol,sol1, sol2 = ils_instance.iterate(iterMin, iterMax, perturbation)
+      finalResult = ils_instance.getFinalResult()
+    
+    tempo_final = time.time()
+    tempo_gasto = tempo_final - tempo_inicial
+
+    file = open(os.path.join(HeuristicSolDir, f'solution_{perturbation*10}.txt'), 'a')
+    file.write(f'{element}\t{exactSol}\t{finalResult}\t{tempo_gasto}s\t{finalResult - exactSol}\n')
+    file.close()
+    data.append([element , float(exactSol), float(finalResult), tempo_gasto, perturbation])
+   return data
    
-generate_kp_LPs('berlin52-ttp', 'kp_lp_files')
-generate_tsp_LPs('berlin52-ttp', 'tsp_lp_files')
-solve_LPs('kp_lp_files', 'kp_sol_files')
-solve_LPs('tsp_lp_files', 'tsp_sol_files')
+#generate_kp_LPs('ttp-instances', 'kp_lp_files')
+#generate_tsp_LPs('ttp-instances', 'tsp_lp_files')
+#solve_LPs('kp_lp_files', 'kp_sol_files')
+#solve_LPs('tsp_lp_files', 'tsp_sol_files')
 
-"""
-ttp = TravelingThiefProblem()
-ttp.read_from_file("./berlin52-ttp/berlin52_n51_bounded-strongly-corr_01.ttp")
+#for i in range(0, 10):
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.1 )
+with open('RECORDS.csv', 'w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
 
-#Travelling salesman problem is constructed in LP format based on ttp read instace
-tsp = tsp_lp_builder("lp-tsp.lp",ttp.nodes)
-tsp.setDistanceBetweenCities()
-tsp.setObjectiveFunction("lp-tsp.lp")
-tsp.setConstraints("lp-tsp.lp")
-tsp.setBounds("lp-tsp.lp")
-tsp.setVariableTypes("lp-tsp.lp")
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.2 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
 
-#Knapsack problem is constructed in LP format based on ttp read instance
-kp = kp_lp_builder("lpkp.lp", ttp.items, ttp.knapsack_capacity)
-kp.setObjectiveFunction("lpkp.lp")
-kp.setConstraints("lpkp.lp")
-kp.setVariableTypes("lpkp.lp")
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.3 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
 
-#LP models are read using gurobi python API and solution is writen to solution file
-model = grb.read('lpkp.lp')
-model.optimize()
-model.write('sol.sol')
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.4 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
 
-#After solving the model, we take the solution file and read it using solution loader
-results = result_loader('sol.sol', ttp)
-index = results.getObjectiveValueIndex('kp')
-print(results.getKpResult(index))
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.5 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
 
-model2 = grb.read('lp-tsp.lp')
-model2.optimize()
-model2.write('sol2.sol')
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.6 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
 
-results2 = result_loader('sol2.sol',ttp)
-index2 = results2.getObjectiveValueIndex('tsp')
-x, u = results2.getTspResult(index2)
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.7 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
 
-"""
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.8 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
+
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.9 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
+
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.1 )
+with open('RECORDS.csv', 'a', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerows(data)
