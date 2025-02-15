@@ -332,20 +332,21 @@ class iterated_local_search:
     self.tsp_size = m;
 
   #tem uma margem de minimo e maximo
-  def iterate(self,minIter, maxIter , perturbationFactor):
+  def iterate(self,NumIteracao, perturbationFactormin,perturbationFactormax):
     kp_sol = self.kp_sol;
     tsp_sol = self.tsp_sol;
-    for counter in range(minIter, maxIter):
+    for counter in range(NumIteracao):
       #Escolhe o ttp ou o kp aleatoriamente para pertubar
       switch = random.randint(0,1);
       if(switch == 0):
-        kp_sol_perturbed = self.perturbation(kp_sol, perturbationFactor, counter,'kp');
+        kp_sol_perturbed = self.perturbation(kp_sol, perturbationFactormin,perturbationFactormax, counter,'kp');
       else:
-        tsp_sol_perturbed = self.perturbation(tsp_sol, perturbationFactor, counter,'tsp');
+        tsp_sol_perturbed = self.perturbation(tsp_sol, perturbationFactormin,perturbationFactormax, counter,'tsp');
 
     return kp_sol_perturbed, tsp_sol_perturbed
 
-  def perturbation(self, sol, perturbationFactor, iterNumber ,problemType):
+  def perturbation(self, sol, perturbationFactormin,perturbationFactormax, iterNumber ,problemType):
+    perturbationFactor = random.uniform(perturbationFactormin, perturbationFactormax);
     if(problemType == 'kp'):
       i = random.randint(0, self.kp_size-1);
       min_j = max(0, i - int(perturbationFactor * self.kp_size))
