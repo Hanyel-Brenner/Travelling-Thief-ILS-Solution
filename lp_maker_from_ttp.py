@@ -342,7 +342,7 @@ class iterated_local_search:
     self.profit = 0;
 
   #tem uma margem de minimo e maximo
-  def iterate(self, minIter, maxIter , perturbationFactor):
+  def iterate(self, numIter, perturbationFactorMin , perturbationFactorMax):
     baseResult = calculate_ttp_value(self.ttp, self.tsp_sol ,self.kp_sol)
     exactSol = baseResult
     kp_sol = self.kp_sol[:];
@@ -350,11 +350,11 @@ class iterated_local_search:
     kp_sol_perturbed = self.kp_sol[:];
     tsp_sol_perturbed = self.tsp_sol[:];
 
-    for counter in range(minIter, maxIter):
+    for counter in range(numIter):
       #Escolhe o ttp ou o kp aleatoriamente para pertubar
       switch = random.randint(0,1);
       if(switch == 0):
-        temp_sol = self.perturbation(kp_sol, perturbationFactor, counter,'kp');
+        temp_sol = self.perturbation(kp_sol, perturbationFactorMin, perturbationFactorMax, counter,'kp');
         #verifica se a capacidade máxima da mochila não foi violada
         totalWeight = 0
         for item_index, profit, weight, assigned_node in self.ttp.items:
@@ -367,7 +367,7 @@ class iterated_local_search:
         else:
           kp_sol_perturbed = temp_sol[:]
       else:
-        tsp_sol_perturbed = self.perturbation(tsp_sol, perturbationFactor, counter,'tsp');
+        tsp_sol_perturbed = self.perturbation(tsp_sol, perturbationFactorMin, perturbationFactorMax, counter,'tsp');
       
       #calcula novo resultado baseado na perturbação
       newResult = calculate_ttp_value(self.ttp, tsp_sol_perturbed, kp_sol_perturbed)
@@ -381,7 +381,8 @@ class iterated_local_search:
     self.profit = baseResult    
     return exactSol, kp_sol, tsp_sol
 
-  def perturbation(self, sol, perturbationFactor, counter ,problemType):
+  def perturbation(self, sol, perturbationFactormin, perturbationFactormax, iterNumber ,problemType):
+    perturbationFactor = random.uniform(perturbationFactormin, perturbationFactormax);
     temp_sol = sol[:]
     if(problemType == 'kp'):
       i = random.randint(0, self.kp_size-1);
@@ -442,14 +443,14 @@ def solve_LPs(lpFilesDir, solOutDir):
     model.optimize()
     model.write(outDirPath)
 
-def applyHeuristic(ttpInstanceDir, kpSolDir, HeuristicSolDir, iterMin, iterMax, perturbation):
+def applyHeuristic(ttpInstanceDir, kpSolDir, HeuristicSolDir, numIter, perturbationFactorMin, perturbationFactorMax):
    tsp_result_eil51 = [1, 22, 2, 16, 50, 34, 21, 29, 20, 35, 36, 3, 28, 31, 8, 26, 7, 43, 24, 23, 48, 6, 27, 46, 12, 47, 4, 18, 14, 25, 13, 41, 19, 40, 42, 44, 17, 37, 15, 45, 33, 39, 10, 30, 9, 49, 5, 38, 11, 32, 1]
    tsp_result_pr152 = [1, 35, 36, 34, 47, 51, 73, 75, 48, 49, 50, 76, 74, 77, 93, 94, 95, 92, 78, 91, 96, 115, 116, 124, 125, 126, 152, 150, 151, 127, 128, 123, 122, 129, 130, 149, 148, 147, 131, 132, 121, 120, 133, 134, 146, 145, 144, 135, 136, 119, 118, 137, 138, 143, 142, 141, 139, 140, 117, 110, 109, 108, 85, 84, 86, 107, 106, 105, 83, 87, 104, 111, 112, 82, 88, 103, 102, 101, 81, 89, 100, 113, 114, 80, 90, 99, 98, 97, 79, 71, 72, 53, 52, 46, 70, 69, 54, 45, 44, 55, 56, 68, 67, 66, 65, 57, 43, 42, 58, 59, 64, 63, 62, 61, 60, 41, 40, 18, 17, 9, 8, 10, 19, 21, 20, 7, 11, 22, 23, 39, 6, 12, 24, 25, 26, 5, 13, 27, 28, 38, 4, 14, 29, 30, 31, 3, 15, 32, 33, 37, 2, 16,1] 
    tsp_result_a280 = [1, 2, 242, 243, 244, 241, 240, 239, 238, 237, 236, 235, 234, 233, 232, 231, 246, 245, 247,250, 251, 230, 229, 228, 227, 226, 225, 224, 223, 222, 221, 220, 219, 218, 217, 216, 215, 214,213, 212, 211, 210, 207, 206, 205, 204, 203, 202, 201, 198, 197, 196, 195, 194, 193, 192, 191,190, 189, 188, 187, 186, 185, 184, 183, 182, 181, 176, 180, 179, 150, 178, 177, 151, 152, 156,153, 155, 154, 129, 130, 131, 20, 21, 128, 127, 126, 125, 124, 123, 122, 121, 120, 119, 157,158, 159, 160, 175, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 172, 171, 173, 174, 107,106, 105, 104, 103, 102, 101, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 109, 108, 110,111, 112, 88, 87, 113, 114, 115, 117, 116, 86, 85, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74,73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45,44, 59, 63, 62, 118, 61, 60, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28,27, 26, 22, 25, 23, 24, 14, 15, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 277, 276, 275, 274, 273, 272,271, 16, 17, 18, 19, 132, 133, 134, 270, 269, 135, 136, 268, 267, 137, 138, 139, 149, 148, 147,146, 145, 199, 200, 144, 143, 142, 141, 140, 266, 265, 264, 263, 262, 261, 260, 259, 258, 257,254, 253, 208, 209, 252, 255, 256, 249, 248, 278, 279, 3, 280,1]
    if(not(os.path.exists(HeuristicSolDir))):
     os.makedirs(HeuristicSolDir)
 
-   file = open(os.path.join(HeuristicSolDir, f'solution_{perturbation*10}.txt'), 'w')
+   file = open(os.path.join(HeuristicSolDir, f'solution_{perturbationFactorMax*10}.txt'), 'w')
    file.write('Solutions\n',)
    file.close()
 
@@ -468,39 +469,39 @@ def applyHeuristic(ttpInstanceDir, kpSolDir, HeuristicSolDir, iterMin, iterMax, 
     tempo_inicial = time.time()
     if 'eil51' in element:
       ils_instance = iterated_local_search(ttp, kp_result, tsp_result_eil51, len(kp_result), len(tsp_result_eil51))
-      exactSol,sol1, sol2 = ils_instance.iterate(iterMin, iterMax, perturbation)
+      exactSol,sol1, sol2 = ils_instance.iterate(numIter, perturbationFactorMin, perturbationFactorMax)
       finalResult = ils_instance.getFinalResult()
 
     if 'pr152' in element:
       ils_instance = iterated_local_search(ttp, kp_result, tsp_result_pr152, len(kp_result), len(tsp_result_pr152))
-      exactSol, sol1, sol2 = ils_instance.iterate(iterMin, iterMax, perturbation)
+      exactSol, sol1, sol2 = ils_instance.iterate(numIter, perturbationFactorMin, perturbationFactorMax)
       finalResult = ils_instance.getFinalResult()
 
     if 'a280' in element:
       ils_instance = iterated_local_search(ttp, kp_result, tsp_result_a280, len(kp_result), len(tsp_result_a280))
-      exactSol,sol1, sol2 = ils_instance.iterate(iterMin, iterMax, perturbation)
+      exactSol,sol1, sol2 = ils_instance.iterate(numIter, perturbationFactorMin, perturbationFactorMax)
       finalResult = ils_instance.getFinalResult()
     
     tempo_final = time.time()
     tempo_gasto = tempo_final - tempo_inicial
 
-    file = open(os.path.join(HeuristicSolDir, f'solution_{perturbation*10}.txt'), 'a')
+    file = open(os.path.join(HeuristicSolDir, f'solution_{perturbationFactorMax*10}.txt'), 'a')
     file.write(f'{element}\t{exactSol}\t{finalResult}\t{tempo_gasto}s\t{finalResult - exactSol}\n')
     file.close()
-    data.append([element , float(exactSol), float(finalResult), tempo_gasto, perturbation])
+    data.append([element , float(exactSol), float(finalResult), tempo_gasto, perturbationFactorMax])
    return data
    
-#generate_kp_LPs('ttp-instances', 'kp_lp_files')
-#generate_tsp_LPs('ttp-instances', 'tsp_lp_files')
-#solve_LPs('kp_lp_files', 'kp_sol_files')
+generate_kp_LPs('ttp-instances', 'kp_lp_files')
+generate_tsp_LPs('ttp-instances', 'tsp_lp_files')
+solve_LPs('kp_lp_files', 'kp_sol_files')
 #solve_LPs('tsp_lp_files', 'tsp_sol_files')
 
 #for i in range(0, 10):
-data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.1 )
+data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 10000, 0.1, 0.9 )
 with open('RECORDS.csv', 'w', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(data)
-
+"""
 data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0.2 )
 with open('RECORDS.csv', 'a', newline='') as file:
     writer = csv.writer(file)
@@ -545,3 +546,4 @@ data = applyHeuristic('ttp-instances', 'kp_sol_files' , 'Solution2', 0, 10000, 0
 with open('RECORDS.csv', 'a', newline='') as file:
     writer = csv.writer(file)
     writer.writerows(data)
+"""
