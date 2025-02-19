@@ -393,9 +393,9 @@ class iterated_local_search:
       return temp_sol[:];
 
     if(problemType == 'tsp'):
-        i, j = random.sample(range(self.tsp_size), 2)  # Escolhe dois índices distintos
-        temp_sol[i], temp_sol[j] = temp_sol[j], temp_sol[i]  # Realiza a troca
-    return sol[:]
+      i, j = random.sample(range(self.tsp_size), 2)  # Escolhe dois índices distintos
+      temp_sol[i], temp_sol[j] = temp_sol[j], temp_sol[i]  # Realiza a troca
+      return temp_sol[:];
   
   def getFinalResult(self):
     return self.profit
